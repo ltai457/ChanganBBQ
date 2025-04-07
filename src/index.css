@@ -1,0 +1,31 @@
+/* Custom responsive helper styles */
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #5f6fff;
+  --grid-auto-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.active hr {
+  @apply block;
+}
+
+::-webkit-scrollbar {
+  @apply hidden;
+}
+
+.auto-grid {
+  @apply grid;
+  grid-template-columns: var(--grid-auto-columns);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
