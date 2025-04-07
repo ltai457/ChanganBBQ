@@ -32,7 +32,7 @@ const CategoryNav = ({ activeCategory, setActiveCategory, categories = [] }) => 
               key={category.id}
               onClick={() => setActiveCategory(category.id)}
               className={`
-                flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200
+                flex-shrink-0 mt-3 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200
                 border-2 border-red-600 
                 ${activeCategory === category.id 
                   ? 'bg-red-600 text-white' 
