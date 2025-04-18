@@ -259,7 +259,10 @@ function RestaurantInfoManager() {
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                   />
                 </svg>
-                <a href={`tel:${restaurantInfo.phone}`} className="text-gray-600 hover:text-blue-500">
+                <a
+                  href={`tel:${restaurantInfo.phone}`}
+                  className="text-gray-600 hover:text-blue-500"
+                >
                   {restaurantInfo.phone}
                 </a>
               </div>
@@ -281,7 +284,10 @@ function RestaurantInfoManager() {
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                   />
                 </svg>
-                <a href={`tel:${restaurantInfo.phone2}`} className="text-gray-600 hover:text-blue-500">
+                <a
+                  href={`tel:${restaurantInfo.phone2}`}
+                  className="text-gray-600 hover:text-blue-500"
+                >
                   {restaurantInfo.phone2}
                 </a>
               </div>
@@ -531,7 +537,8 @@ function RestaurantInfoManager() {
                       className="h-24 w-24 object-cover rounded-full border border-gray-300"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "https://via.placeholder.com/100?text=Logo";
+                        e.target.src =
+                          "https://via.placeholder.com/100?text=Logo";
                       }}
                     />
                   </div>
@@ -553,7 +560,9 @@ function RestaurantInfoManager() {
 
             {/* Social Media Links */}
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Social Media & Location</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                Social Media & Location
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label
@@ -633,6 +642,15 @@ function RestaurantInfoManager() {
                   className="w-full sm:w-auto bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`w-full sm:w-auto py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    saving ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>
