@@ -18,8 +18,11 @@ function CategoryManager() {
   const [editCategory, setEditCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverItem, setDragOverItem] = useState(null);
+  const [activeItem, setActiveItem] = useState(null);
+  const [initialY, setInitialY] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const listRef = useRef(null);
+  const itemRefs = useRef({});
 
   useEffect(() => {
     fetchCategories();
@@ -202,60 +205,211 @@ function CategoryManager() {
     }
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (index) => {
-    setDraggedItem(index);
-  };
+  // Find the index where the dragged item should be placed
+  const findDropIndex = (y) => {
+    const listItems = Array.from(listRef.current?.children || []);
+    if (!listItems.length) return 0;
 
-  const handleDragEnter = (index) => {
-    setDragOverItem(index);
-  };
+    // Skip the active item
+    const filteredItems = listItems.filter(
+      item => item !== itemRefs.current[activeItem?.id]
+    );
 
-  const handleDragOver = (e) => {
-    e.preventDefault(); // Necessary to allow dropping
-  };
-
-  const handleDragEnd = async () => {
-    if (draggedItem === null || dragOverItem === null || draggedItem === dragOverItem) {
-      setDraggedItem(null);
-      setDragOverItem(null);
-      return;
+    // Find the first item that's below the cursor position
+    for (let i = 0; i < filteredItems.length; i++) {
+      const rect = filteredItems[i].getBoundingClientRect();
+      const itemMiddle = rect.top + rect.height / 2;
+      if (y < itemMiddle) return i;
     }
 
-    try {
-      // Update the UI immediately for better user experience
-      const newCategories = [...categories];
-      const draggedCategory = newCategories[draggedItem];
-      // Remove the dragged item
-      newCategories.splice(draggedItem, 1);
-      // Insert at the new position
-      newCategories.splice(dragOverItem, 0, draggedCategory);
+    // If no item is below, place at the end
+    return filteredItems.length;
+  };
+
+  // Setup touch event listeners once on mount
+  useEffect(() => {
+    // Setup passive handlers for move events
+    const handleTouchMove = (e) => {
+      if (!activeItem) return;
       
-      // Update the local state first for immediate feedback
-      setCategories(newCategories);
+      const touch = e.touches[0];
+      if (!touch) return;
       
-      // Create an array of update promises with new order values
-      const updatePromises = newCategories.map((category, index) => {
-        return updateDoc(doc(db, 'categories', category.id), {
-          order: index,
-          updatedAt: new Date()
-        });
-      });
+      const pageY = touch.pageY;
+      const newOffsetY = pageY - initialY;
+      setOffsetY(newOffsetY);
+    };
+    
+    const handleTouchEnd = async (e) => {
+      if (!activeItem) return;
       
-      // Execute all updates
-      await Promise.all(updatePromises);
+      const touch = e.changedTouches[0];
+      if (!touch) {
+        setActiveItem(null);
+        setOffsetY(0);
+        return;
+      }
       
-      // Refresh categories to ensure consistency
-      await fetchCategories();
-    } catch (error) {
-      console.error('Error updating category order:', error);
-      setError('Failed to update category order. Please try again.');
-      // If there's an error, refresh to get the original order
-      await fetchCategories();
-    } finally {
-      // Reset drag state
-      setDraggedItem(null);
-      setDragOverItem(null);
+      const pageY = touch.pageY;
+      
+      // Find the index to drop at
+      const dropIndex = findDropIndex(pageY);
+      
+      // Adjust index based on the start position
+      let finalDropIndex = dropIndex;
+      if (dropIndex > activeItem.startIndex) {
+        finalDropIndex -= 1;
+      }
+      
+      // Only reorder if the position changed
+      if (finalDropIndex !== activeItem.startIndex) {
+        try {
+          // Make a copy of the categories array
+          const newCategories = [...categories];
+          
+          // Remove the dragged item
+          const [draggedItem] = newCategories.splice(activeItem.startIndex, 1);
+          
+          // Add it to the new position
+          newCategories.splice(finalDropIndex, 0, draggedItem);
+          
+          // Update the state first for better UX
+          setCategories(newCategories);
+          
+          // Reset active item and offset
+          setActiveItem(null);
+          setOffsetY(0);
+          
+          // Update Firestore with new order values
+          const updatePromises = newCategories.map((category, index) => {
+            return updateDoc(doc(db, 'categories', category.id), {
+              order: index,
+              updatedAt: new Date()
+            });
+          });
+          
+          // Execute all updates
+          await Promise.all(updatePromises);
+          
+          // Refresh categories to ensure consistency
+          await fetchCategories();
+        } catch (error) {
+          console.error('Error updating category order:', error);
+          setError('Failed to update category order. Please try again.');
+          setActiveItem(null);
+          setOffsetY(0);
+          // Refresh to restore original order
+          await fetchCategories();
+        }
+      } else {
+        // Reset if no change
+        setActiveItem(null);
+        setOffsetY(0);
+      }
+    };
+    
+    // Mouse events (still need these for desktop)
+    const handleMouseMove = (e) => {
+      if (!activeItem) return;
+      const newOffsetY = e.pageY - initialY;
+      setOffsetY(newOffsetY);
+    };
+    
+    const handleMouseUp = async (e) => {
+      if (!activeItem) return;
+      
+      // Find the index to drop at
+      const dropIndex = findDropIndex(e.pageY);
+      
+      // Adjust index based on the start position
+      let finalDropIndex = dropIndex;
+      if (dropIndex > activeItem.startIndex) {
+        finalDropIndex -= 1;
+      }
+      
+      // Only reorder if the position changed
+      if (finalDropIndex !== activeItem.startIndex) {
+        try {
+          // Make a copy of the categories array
+          const newCategories = [...categories];
+          
+          // Remove the dragged item
+          const [draggedItem] = newCategories.splice(activeItem.startIndex, 1);
+          
+          // Add it to the new position
+          newCategories.splice(finalDropIndex, 0, draggedItem);
+          
+          // Update the state first for better UX
+          setCategories(newCategories);
+          
+          // Reset active item and offset
+          setActiveItem(null);
+          setOffsetY(0);
+          
+          // Update Firestore with new order values
+          const updatePromises = newCategories.map((category, index) => {
+            return updateDoc(doc(db, 'categories', category.id), {
+              order: index,
+              updatedAt: new Date()
+            });
+          });
+          
+          // Execute all updates
+          await Promise.all(updatePromises);
+          
+          // Refresh categories to ensure consistency
+          await fetchCategories();
+        } catch (error) {
+          console.error('Error updating category order:', error);
+          setError('Failed to update category order. Please try again.');
+          // Refresh to restore original order
+          await fetchCategories();
+        }
+      }
+      
+      // Reset state
+      setActiveItem(null);
+      setOffsetY(0);
+    };
+    
+    // Add global listeners when component mounts
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Remove listeners when component unmounts
+    return () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [activeItem, initialY, categories]);
+
+  // Start dragging (for both mouse and touch)
+  const handleDragStart = (e, category, index) => {
+    if (editCategory) return; // Don't allow dragging while editing
+    
+    // Track touch or mouse position
+    let pageY;
+    if (e.type === 'touchstart') {
+      e.preventDefault(); // This is OK in touchstart (not passive by default)
+      pageY = e.touches[0].pageY;
+    } else {
+      e.preventDefault();
+      pageY = e.pageY;
+    }
+    
+    setActiveItem({ ...category, startIndex: index });
+    setInitialY(pageY);
+    setOffsetY(0);
+  };
+
+  // Register a reference to a category list item
+  const registerItemRef = (id, ref) => {
+    if (ref) {
+      itemRefs.current[id] = ref;
     }
   };
 
@@ -314,16 +468,19 @@ function CategoryManager() {
             </p>
           </div>
           
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-gray-200" ref={listRef}>
             {categories.map((category, index) => (
               <li 
-                key={category.id} 
-                className={`py-4 flex items-center justify-between ${dragOverItem === index ? 'bg-gray-50 border-y border-indigo-200' : ''} ${draggedItem === index ? 'opacity-60' : ''}`}
-                draggable={editCategory?.id !== category.id}
-                onDragStart={() => handleDragStart(index)}
-                onDragEnter={() => handleDragEnter(index)}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
+                key={category.id}
+                ref={(ref) => registerItemRef(category.id, ref)}
+                className={`py-4 flex items-center justify-between relative ${
+                  activeItem?.id === category.id ? 'opacity-60 bg-gray-50 border border-indigo-200 z-10' : ''
+                }`}
+                style={activeItem?.id === category.id ? { 
+                  transform: `translateY(${offsetY}px)`,
+                  position: 'relative',
+                  zIndex: 10,
+                } : {}}
               >
                 {editCategory && editCategory.id === category.id ? (
                   <form onSubmit={handleUpdateCategory} className="flex-1 flex items-center">
@@ -349,8 +506,12 @@ function CategoryManager() {
                   </form>
                 ) : (
                   <>
-                    <div className="flex items-center cursor-move">
-                      <div className="mr-3 text-gray-400">
+                    <div className="flex items-center">
+                      <div 
+                        className="mr-3 text-gray-400 cursor-move touch-none" 
+                        onMouseDown={(e) => handleDragStart(e, category, index)}
+                        onTouchStart={(e) => handleDragStart(e, category, index)}
+                      >
                         {/* Drag handle icon */}
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
