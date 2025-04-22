@@ -78,25 +78,40 @@ function MenuItemManager() {
 
   const fetchMenuItems = async () => {
     if (!selectedCategory) return;
-
+  
     setLoading(true);
     try {
-      // Create a query that orders by the "order" field
-      const menuItemsRef = collection(
-        db,
-        "categories",
-        selectedCategory,
-        "items"
-      );
-      const q = query(menuItemsRef, orderBy("order", "asc"));
-      const snapshot = await getDocs(q);
-
-      const itemsList = snapshot.docs.map((doc) => ({
+      // First, get all items regardless of order field
+      const menuItemsRef = collection(db, "categories", selectedCategory, "items");
+      const snapshot = await getDocs(menuItemsRef);
+  
+      // Map the documents and add order field if missing
+      const itemsList = snapshot.docs.map((doc, index) => ({
         id: doc.id,
         ...doc.data(),
+        // Use existing order or fallback to index
+        order: doc.data().order !== undefined ? doc.data().order : index + 1000
       }));
-
-      setMenuItems(itemsList);
+  
+      // Sort by order field client-side
+      const sortedItems = [...itemsList].sort((a, b) => a.order - b.order);
+      
+      setMenuItems(sortedItems);
+      
+      // Optional: Update items missing order field
+      const itemsMissingOrder = itemsList.filter(item => 
+        item.order >= 1000 || item.order === undefined
+      );
+      
+      if (itemsMissingOrder.length > 0) {
+        console.log(`Found ${itemsMissingOrder.length} items without order field, fixing...`);
+        // Update them in the background
+        itemsMissingOrder.forEach((item, idx) => {
+          updateDoc(doc(db, "categories", selectedCategory, "items", item.id), {
+            order: sortedItems.findIndex(i => i.id === item.id)
+          });
+        });
+      }
     } catch (error) {
       console.error("Error fetching menu items:", error);
     } finally {
