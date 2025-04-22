@@ -8,6 +8,8 @@ import {
   doc,
   getDocs,
   getDoc,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import {
   ref,
@@ -79,16 +81,59 @@ function MenuItemManager() {
 
     setLoading(true);
     try {
-      const snapshot = await getDocs(
-        collection(db, "categories", selectedCategory, "items")
+      // Create a query that orders by the "order" field
+      const menuItemsRef = collection(
+        db,
+        "categories",
+        selectedCategory,
+        "items"
       );
+      const q = query(menuItemsRef, orderBy("order", "asc"));
+      const snapshot = await getDocs(q);
+
       const itemsList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+
       setMenuItems(itemsList);
     } catch (error) {
       console.error("Error fetching menu items:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const fixMissingOrderFields = async () => {
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(
+        collection(db, "categories", selectedCategory, "items")
+      );
+
+      const itemsList = snapshot.docs.map((doc, index) => ({
+        id: doc.id,
+        ...doc.data(),
+        order: doc.data().order ?? index, // Use existing order or index
+      }));
+
+      // Update any items with missing order fields
+      const updatePromises = itemsList
+        .filter((item) => item.order === undefined)
+        .map((item, index) =>
+          updateDoc(doc(db, "categories", selectedCategory, "items", item.id), {
+            order: index,
+          })
+        );
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+        console.log(`Fixed order fields for ${updatePromises.length} items`);
+      }
+
+      // Re-fetch with correct order
+      await fetchMenuItems();
+    } catch (error) {
+      console.error("Error fixing order fields:", error);
     } finally {
       setLoading(false);
     }
@@ -561,6 +606,18 @@ function MenuItemManager() {
             ))
           )}
         </select>
+
+        {/* Add the Fix Order button here */}
+        {selectedCategory && (
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={fixMissingOrderFields}
+              className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Fix Menu Item Order
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Form */}
